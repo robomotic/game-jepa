@@ -1,0 +1,7 @@
+Atari/*
+data/*
+outputs/*
+
+__pycache__
+
+*.pth
