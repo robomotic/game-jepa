@@ -184,61 +184,59 @@ python atari_jepa/scripts/train_combined.py [OPTIONS]
 
 ## Example training:
 
+Here's an example of training the model with advanced features using synthetic data:
 
+```bash
 python atari_jepa/scripts/train_combined.py --data_mode synthetic --synthetic_samples 100 --context_encoder vit --predictor transformer --embedding_dim 256 --hidden_dim 512 --use_masking --mask_ratio 0.3 --batch_size 8 --epochs 20
-Preparing data using 'synthetic' mode...
-Creating simplified dataset for breakout with 100 samples
-Created dataset with 100 samples
-Train dataloader: 10 batches
-Validation dataloader: 3 batches
-Creating model...
-Starting training...
-Epoch 1/20: 100%|██████████████████████████████████████████████████████████████████████████████| 10/10 [00:01<00:00,  7.62it/s, loss=2.33]
-Epoch 2/20: 100%|██████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.54it/s, loss=2.06]
-Epoch 3/20: 100%|██████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.34it/s, loss=2.09]
-Epoch 4/20: 100%|██████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.40it/s, loss=2.16]
-Epoch 5/20: 100%|██████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.48it/s, loss=2.27]
-Validating model...
-Validation Loss: 1.8509
-Accuracy: 0.1500
-MRR: 0.3760
-Saved best model to ../outputs/breakout_20250401_150229/checkpoints/best_model.pth
-Saved best accuracy model to ../outputs/breakout_20250401_150229/checkpoints/best_accuracy_model.pth
-Epoch 6/20: 100%|██████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 32.76it/s, loss=2.13]
-Epoch 7/20: 100%|██████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.37it/s, loss=2.17]
-Epoch 8/20: 100%|██████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 33.81it/s, loss=2.15]
-Epoch 9/20: 100%|██████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.31it/s, loss=2.14]
-Epoch 10/20: 100%|█████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.40it/s, loss=2.06]
-Validating model...
-Validation Loss: 1.8527
-Accuracy: 0.1500
-MRR: 0.3760
-Saved checkpoint to ../outputs/breakout_20250401_150229/checkpoints/model_epoch_10.pth
-Epoch 11/20: 100%|██████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.50it/s, loss=2.1]
-Epoch 12/20: 100%|█████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.10it/s, loss=2.04]
-Epoch 13/20: 100%|█████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.44it/s, loss=2.16]
-Epoch 14/20: 100%|█████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.52it/s, loss=2.06]
-Epoch 15/20: 100%|█████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.45it/s, loss=2.08]
-Validating model...
-Validation Loss: 1.8561
-Accuracy: 0.1500
-MRR: 0.3760
-Epoch 16/20: 100%|█████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.33it/s, loss=2.13]
-Epoch 17/20: 100%|█████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.54it/s, loss=2.06]
-Epoch 18/20: 100%|█████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.19it/s, loss=2.08]
-Epoch 19/20: 100%|█████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 33.83it/s, loss=2.06]
-Epoch 20/20: 100%|█████████████████████████████████████████████████████████████████████████████| 10/10 [00:00<00:00, 34.77it/s, loss=2.04]
-Validating model...
-Validation Loss: 1.8572
-Accuracy: 0.1500
-MRR: 0.3760
-Saved checkpoint to ../outputs/breakout_20250401_150229/checkpoints/model_epoch_20.pth
+```
+
+### Parameter Explanation:
+
+- `--data_mode synthetic`: Uses synthetic data generation instead of real Atari-HEAD dataset
+- `--synthetic_samples 100`: Generates 100 random frame-action pairs for training
+- `--context_encoder vit`: Uses Vision Transformer architecture for encoding frames
+- `--predictor transformer`: Uses Transformer-based predictor with self-attention
+- `--embedding_dim 256`: Sets the dimension of latent embeddings to 256
+- `--hidden_dim 512`: Sets the dimension of hidden layers to 512
+- `--use_masking`: Enables self-supervised learning with patch masking
+- `--mask_ratio 0.3`: Masks 30% of the input patches during training
+- `--batch_size 8`: Processes 8 samples per training iteration
+- `--epochs 20`: Trains for 20 complete passes through the dataset
+
+### What's Happening During Training:
+
+1. **Data Preparation**: The script generates 100 synthetic frame-action pairs and splits them into training (80%) and validation (20%) sets.
+
+2. **Model Creation**: A JEPA model is created with:
+   - Vision Transformer context encoder for processing frames
+   - Standard action embedding target encoder
+   - Transformer-based predictor for mapping frame embeddings to action embeddings
+
+3. **Training Process**:
+   - During each epoch, the model processes batches of frames with 30% of patches randomly masked
+   - The Vision Transformer encoder extracts features from the partially masked frames
+   - The Transformer predictor maps these features to predicted action embeddings
+   - Loss is calculated using contrastive learning (comparing predicted vs. actual action embeddings)
+
+4. **Validation**: Every 5 epochs, the model is evaluated on the validation set with masking disabled
+
+### Training Results:
+
+```
 Final evaluation...
 Test Loss: 1.8572
 Test Accuracy: 0.1500
 Test MRR: 0.3760
-Saved final model to ../outputs/breakout_20250401_150229/checkpoints/final_model.pth
 ```
+
+- **Test Loss**: Final contrastive loss value (lower is better)
+- **Test Accuracy**: Percentage of correctly predicted actions (with synthetic random data, this is near random chance)
+- **Test MRR**: Mean Reciprocal Rank - a measure of ranking quality (higher is better)
+
+The model saves checkpoints during training, with the final model stored at `../outputs/[timestamp]/checkpoints/final_model.pth`.
+
+> **Note**: When using synthetic data, performance metrics are primarily for testing the pipeline functionality rather than actual predictive performance. For meaningful results, use real Atari-HEAD data with `--data_mode real`.
+
 ## Evaluation
 
 Evaluation is not ready yet as I have to plug a game simulator but in principle will work like this:
