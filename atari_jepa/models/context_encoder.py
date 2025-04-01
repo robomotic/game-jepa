@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import random
 from einops import rearrange, repeat
 
 
@@ -529,18 +530,37 @@ class VisionTransformerEncoder(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
     
-    def forward(self, x):
+    def forward(self, x, mask_ratio=0.0):
         """
         Forward pass of the Vision Transformer encoder.
         
         Args:
             x (Tensor): Input tensor of shape (batch_size, channels, height, width)
+            mask_ratio (float): Ratio of patches to mask (0.0 means no masking)
             
         Returns:
             Tensor: Encoded embeddings of shape (batch_size, embedding_dim)
         """
         # Patch embedding
         x = self.patch_embed(x)  # (B, N, C)
+        
+        # Apply masking if needed
+        if mask_ratio > 0:
+            B, N, C = x.shape
+            mask = torch.ones((B, N), device=x.device)  # 1 is keep, 0 is remove
+            
+            # Calculate number of patches to mask
+            num_patches_to_mask = int(N * mask_ratio)
+            
+            # Create random masks for each item in the batch
+            for i in range(B):
+                # Get random indices to mask
+                indices = torch.randperm(N, device=x.device)[:num_patches_to_mask]
+                mask[i, indices] = 0.0
+            
+            # Apply mask by setting masked patches to zero
+            mask = mask.unsqueeze(-1)  # (B, N, 1)
+            x = x * mask
         
         # Add positional embedding
         x = x + self.pos_embed

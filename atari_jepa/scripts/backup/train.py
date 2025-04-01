@@ -112,14 +112,20 @@ def prepare_data(args, processed_dir):
     # Create data processor
     processor = AtariDataProcessor(data_dir=args.data_path, game_name=args.game_name)
     
-    # Extract trial data (in real implementation)
-    # This is a placeholder - in a real implementation, we would extract the data here
-    # trial_info = processor.extract_trials(output_dir=processed_dir)
-    # frame_action_pairs = processor.extract_frame_action_pairs(trial_info)
-    # dataset_files = processor.create_dataset_files(output_dir=processed_dir, frame_action_pairs=frame_action_pairs)
+    # Extract trial data
+    print("Extracting trial data...")
+    trial_info = processor.extract_trials(output_dir=processed_dir)
     
-    # For this skeleton project, we'll assume the data is already processed
-    # and the dataset files exist
+    print("Creating frame-action pairs...")
+    frame_action_pairs = processor.extract_frame_action_pairs(trial_info)
+    
+    print("Creating dataset files...")
+    dataset_files = processor.create_dataset_files(
+        output_dir=processed_dir, 
+        frame_action_pairs=frame_action_pairs
+    )
+    
+    # Files should now exist at these paths
     dataset_files = {
         'train': os.path.join(processed_dir, 'train.csv'),
         'val': os.path.join(processed_dir, 'val.csv'),

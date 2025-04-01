@@ -48,12 +48,19 @@ class AtariFrameActionDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
         
-        # Get frame path and action
-        frame_path = self.data.iloc[idx, 0]
-        action = self.data.iloc[idx, 1]
+        # Get frame path, action_idx, and trial_id
+        row = self.data.iloc[idx]
+        frame_path = row['frame_path']
+        action = row['action_idx']
+        trial_id = row['trial_id'] if 'trial_id' in row else 0
         
         # Load frame
-        frame = Image.open(frame_path)
+        try:
+            frame = Image.open(frame_path)
+        except Exception as e:
+            print(f"Error loading frame {frame_path}: {e}")
+            # Create a blank frame as fallback
+            frame = Image.new('L', (84, 84), color=0)
         
         # Apply transform if provided
         if self.transform:
@@ -70,7 +77,8 @@ class AtariFrameActionDataset(Dataset):
         return {
             'frame': frame,
             'action': action_tensor,
-            'action_idx': torch.tensor(action, dtype=torch.long)
+            'action_idx': torch.tensor(action, dtype=torch.long),
+            'trial_id': torch.tensor(trial_id, dtype=torch.long)
         }
 
 

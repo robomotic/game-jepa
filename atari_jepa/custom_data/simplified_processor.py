@@ -77,7 +77,7 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.8):
     return train_dataloader, val_dataloader
 
 
-def prepare_simplified_data(game_name, batch_size=32):
+def prepare_simplified_data(game_name, batch_size=32, num_samples=1000):
     """
     Prepare simplified synthetic data for testing the model pipeline.
     
@@ -89,7 +89,7 @@ def prepare_simplified_data(game_name, batch_size=32):
         dict: Dictionary containing train and validation dataloaders
     """
     # Create simplified dataset
-    dataset = SimplifiedAtariDataset(game_name=game_name, num_samples=1000)
+    dataset = SimplifiedAtariDataset(game_name=game_name, num_samples=num_samples)
     
     # Create dataloaders
     train_dataloader, val_dataloader = create_dataloaders(
@@ -100,4 +100,5 @@ def prepare_simplified_data(game_name, batch_size=32):
     print(f"Train dataloader: {len(train_dataloader)} batches")
     print(f"Validation dataloader: {len(val_dataloader)} batches")
     
-    return {"train": train_dataloader, "val": val_dataloader}
+    # Use validation dataloader as test dataloader as well
+    return {"train": train_dataloader, "val": val_dataloader, "test": val_dataloader}

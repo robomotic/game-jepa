@@ -5,3 +5,4 @@ outputs/*
 __pycache__
 
 *.pth
+.vscode/settings.json

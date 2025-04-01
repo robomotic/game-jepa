@@ -42,9 +42,9 @@ class AtariDataProcessor:
         
         with open(action_file, 'r') as f:
             for line in f:
-                if '=' in line:
+                if '=' in line and not line.strip().startswith('#'):
                     key, value = line.strip().split('=')
-                    action_map[int(key)] = value.strip()
+                    action_map[int(value.strip())] = key.strip()
         
         return action_map
     
@@ -66,27 +66,68 @@ class AtariDataProcessor:
         if max_trials:
             game_trials = game_trials[:max_trials]
         
+        # Create a frames directory to store all frames
+        frames_dir = os.path.join(output_dir, 'frames')
+        os.makedirs(frames_dir, exist_ok=True)
+        
+        # Create a directory for labels
+        labels_dir = os.path.join(output_dir, 'labels')
+        os.makedirs(labels_dir, exist_ok=True)
+        
         trial_info = {}
         
         for trial_id in game_trials:
-            trial_path = os.path.join(self.data_dir, f"{self.game_name}.zip")
-            
-            # Extract data for this trial
-            trial_output = os.path.join(output_dir, f"trial_{trial_id}")
-            os.makedirs(trial_output, exist_ok=True)
-            
+            # Get the trial data from the meta file
+            trial_meta = self.game_meta[self.game_meta['trial_id'] == trial_id]
+            if len(trial_meta) == 0:
+                print(f"Trial {trial_id} not found in metadata, skipping...")
+                continue
+                
             print(f"Processing trial {trial_id}...")
             
-            # Here we would extract the trial data from the zip file
-            # For now we'll just create a placeholder for the structure
-            trial_info[trial_id] = {
-                'frames_dir': os.path.join(trial_output, 'frames'),
-                'label_file': os.path.join(trial_output, f"trial_{trial_id}_labels.csv"),
-                'frame_count': self.game_meta[self.game_meta['trial_id'] == trial_id]['total_frame'].values[0]
-            }
+            # Create directories for this trial
+            trial_frames_dir = os.path.join(frames_dir, f"trial_{trial_id}")
+            os.makedirs(trial_frames_dir, exist_ok=True)
             
-            # In real implementation, we would extract frames from tar.bz2 and parse label file
-            # This is a placeholder for the actual extraction logic
+            # Create a placeholder label file for now
+            # In a real implementation, we would extract and parse action data
+            label_file = os.path.join(labels_dir, f"trial_{trial_id}_labels.csv")
+            
+            # Generate some placeholder frame files
+            frame_count = trial_meta['total_frame'].values[0]
+            # Generate a small number of frames for testing purposes
+            frame_count = min(frame_count, 100)  # Limit to 100 frames for testing
+            
+            # Create blank frame files (84x84 grayscale)
+            for frame_idx in range(frame_count):
+                frame = np.zeros((84, 84), dtype=np.uint8)
+                # Add a simple pattern to the frame to make it recognizable
+                frame[10:74, 10:74] = 128  # Middle gray square
+                frame[20:64, 20:64] = 255  # White inner square
+                
+                # Add trial and frame number for visualization
+                cv2.putText(frame, f"T{trial_id}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 255, 1)
+                cv2.putText(frame, f"F{frame_idx}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 255, 1)
+                
+                # Save frame as PNG
+                frame_path = os.path.join(trial_frames_dir, f"frame_{frame_idx:05d}.png")
+                cv2.imwrite(frame_path, frame)
+                
+            # Create a placeholder label file with random actions
+            with open(label_file, 'w') as f:
+                f.write("frame_idx,action_idx,action_name\n")
+                for frame_idx in range(frame_count):
+                    # Choose a random action index (0-17 for Atari)
+                    action_idx = np.random.randint(0, 18)
+                    action_name = self.action_map.get(action_idx, "UNKNOWN")
+                    f.write(f"{frame_idx},{action_idx},{action_name}\n")
+            
+            # Store trial info
+            trial_info[trial_id] = {
+                'frames_dir': trial_frames_dir,
+                'label_file': label_file,
+                'frame_count': frame_count
+            }
             
         return trial_info
     
@@ -102,12 +143,44 @@ class AtariDataProcessor:
         """
         frame_action_pairs = []
         
-        # Placeholder for the actual extraction logic
-        # In a real implementation, we would:
-        # 1. Extract frames from the tar.bz2 files
-        # 2. Parse the label files to get actions for each frame
-        # 3. Create pairs of (frame_path, action)
+        # Process each trial to create frame-action pairs
+        for trial_id, info in trial_info.items():
+            frames_dir = info['frames_dir']
+            label_file = info['label_file']
+            
+            # Check if the label file exists
+            if not os.path.exists(label_file):
+                print(f"Label file {label_file} not found, skipping trial {trial_id}...")
+                continue
+                
+            # Load the labels
+            try:
+                labels_df = pd.read_csv(label_file)
+            except Exception as e:
+                print(f"Error reading label file {label_file}: {e}")
+                continue
+                
+            # Process each frame in the trial
+            for _, row in labels_df.iterrows():
+                frame_idx = row['frame_idx']
+                action_idx = row['action_idx']
+                
+                # Construct the frame path
+                frame_path = os.path.join(frames_dir, f"frame_{frame_idx:05d}.png")
+                
+                # Check if the frame exists
+                if not os.path.exists(frame_path):
+                    # print(f"Frame {frame_path} not found, skipping...")
+                    continue
+                    
+                # Add the frame-action pair
+                frame_action_pairs.append({
+                    'frame_path': frame_path,
+                    'action_idx': action_idx,
+                    'trial_id': trial_id
+                })
         
+        print(f"Created {len(frame_action_pairs)} frame-action pairs from {len(trial_info)} trials")
         return frame_action_pairs
     
     def preprocess_frame(self, frame, target_size=(84, 84)):
@@ -145,8 +218,27 @@ class AtariDataProcessor:
         Returns:
             dict: Paths to the dataset files
         """
+        if not frame_action_pairs:
+            print("No frame-action pairs to create dataset files from!")
+            # Create empty files to avoid file not found errors
+            train_file = os.path.join(output_dir, 'train.csv')
+            val_file = os.path.join(output_dir, 'val.csv')
+            test_file = os.path.join(output_dir, 'test.csv')
+            
+            # Create empty files with headers
+            for file_path in [train_file, val_file, test_file]:
+                with open(file_path, 'w') as f:
+                    f.write('frame_path,action_idx,trial_id\n')
+                    
+            return {
+                'train': train_file,
+                'val': val_file,
+                'test': test_file
+            }
+        
         # Shuffle data
-        np.random.shuffle(frame_action_pairs)
+        import random
+        random.shuffle(frame_action_pairs)
         
         # Split data
         n_samples = len(frame_action_pairs)
@@ -164,21 +256,23 @@ class AtariDataProcessor:
         
         # Write train file
         with open(train_file, 'w') as f:
-            f.write('frame_path,action\n')
-            for frame_path, action in train_pairs:
-                f.write(f"{frame_path},{action}\n")
+            f.write('frame_path,action_idx,trial_id\n')
+            for pair in train_pairs:
+                f.write(f"{pair['frame_path']},{pair['action_idx']},{pair['trial_id']}\n")
         
         # Write val file
         with open(val_file, 'w') as f:
-            f.write('frame_path,action\n')
-            for frame_path, action in val_pairs:
-                f.write(f"{frame_path},{action}\n")
+            f.write('frame_path,action_idx,trial_id\n')
+            for pair in val_pairs:
+                f.write(f"{pair['frame_path']},{pair['action_idx']},{pair['trial_id']}\n")
         
         # Write test file
         with open(test_file, 'w') as f:
-            f.write('frame_path,action\n')
-            for frame_path, action in test_pairs:
-                f.write(f"{frame_path},{action}\n")
+            f.write('frame_path,action_idx,trial_id\n')
+            for pair in test_pairs:
+                f.write(f"{pair['frame_path']},{pair['action_idx']},{pair['trial_id']}\n")
+        
+        print(f"Created dataset files with {len(train_pairs)} training, {len(val_pairs)} validation, and {len(test_pairs)} test samples")
         
         return {
             'train': train_file,

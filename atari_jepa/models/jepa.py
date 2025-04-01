@@ -6,10 +6,11 @@ Combines context encoder, target encoder, and predictor for frame-to-action pred
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import random
 
-from .context_encoder import ContextEncoder, ResNetContextEncoder
+from .context_encoder import ContextEncoder, ResNetContextEncoder, VisionTransformerEncoder
 from .target_encoder import TargetEncoder, AtariActionEncoder
-from .predictor import Predictor, ResidualPredictor
+from .predictor import Predictor, ResidualPredictor, TransformerPredictor
 
 
 class JEPA(nn.Module):
@@ -27,6 +28,8 @@ class JEPA(nn.Module):
         target_encoder_type="standard",
         predictor_type="standard",
         temperature=0.07,
+        use_masking=False,
+        mask_ratio=0.4,
     ):
         """
         Initialize the JEPA model.
@@ -45,6 +48,8 @@ class JEPA(nn.Module):
         
         self.embedding_dim = embedding_dim
         self.temperature = temperature
+        self.use_masking = use_masking
+        self.mask_ratio = mask_ratio
         
         # Context encoder (frame encoder)
         if context_encoder_type == "standard":
@@ -56,6 +61,16 @@ class JEPA(nn.Module):
             self.context_encoder = ResNetContextEncoder(
                 input_channels=input_channels,
                 embedding_dim=embedding_dim
+            )
+        elif context_encoder_type == "vit":
+            self.context_encoder = VisionTransformerEncoder(
+                img_size=84,  # Standard Atari frame size
+                patch_size=7,  # 7x7 patches
+                in_chans=input_channels,
+                embed_dim=embedding_dim,
+                depth=8,       # Number of transformer blocks
+                num_heads=8,   # Number of attention heads
+                mlp_ratio=4.
             )
         else:
             raise ValueError(f"Unknown context encoder type: {context_encoder_type}")
@@ -75,7 +90,7 @@ class JEPA(nn.Module):
             raise ValueError(f"Unknown target encoder type: {target_encoder_type}")
         
         # Predictor
-        if predictor_type == "standard":
+        if predictor_type == "standard" or predictor_type == "mlp":
             self.predictor = Predictor(
                 embedding_dim=embedding_dim,
                 hidden_dim=hidden_dim
@@ -85,19 +100,52 @@ class JEPA(nn.Module):
                 embedding_dim=embedding_dim,
                 hidden_dim=hidden_dim
             )
+        elif predictor_type == "transformer":
+            self.predictor = TransformerPredictor(
+                embed_dim=embedding_dim,
+                output_dim=embedding_dim,
+                num_heads=8,
+                num_layers=4,
+                dropout=0.1
+            )
         else:
             raise ValueError(f"Unknown predictor type: {predictor_type}")
     
-    def encode_context(self, x):
+    def encode_context(self, x, apply_mask=False):
         """
         Encode context (frames) using the context encoder.
         
         Args:
             x (Tensor): Input tensor of shape (batch_size, channels, height, width)
+            apply_mask (bool): Whether to apply masking for self-supervised learning
             
         Returns:
             Tensor: Encoded context embeddings
         """
+        if self.use_masking and apply_mask:
+            # Apply random masking for self-supervised learning
+            # For Vision Transformer, this would be patch masking
+            if isinstance(self.context_encoder, VisionTransformerEncoder):
+                # ViT masking happens in the encoder itself
+                return self.context_encoder(x, mask_ratio=self.mask_ratio)
+            else:
+                # For CNN/ResNet, we can apply simple random masking to the input
+                batch_size, channels, height, width = x.shape
+                mask = torch.ones_like(x)
+                
+                # Create random mask (1=keep, 0=mask)
+                for i in range(batch_size):
+                    num_masks = int(height * width * self.mask_ratio)
+                    mask_indices = torch.randperm(height * width)[:num_masks]
+                    mask_y = mask_indices // width
+                    mask_x = mask_indices % width
+                    mask[i, :, mask_y, mask_x] = 0.0
+                
+                # Apply mask and encode
+                masked_x = x * mask
+                return self.context_encoder(masked_x)
+        
+        # No masking, standard encoding
         return self.context_encoder(x)
     
     def encode_target(self, x):
@@ -124,7 +172,7 @@ class JEPA(nn.Module):
         """
         return self.predictor(context_embeddings)
     
-    def forward(self, frames, actions=None, action_idx=None):
+    def forward(self, frames, actions=None, action_idx=None, apply_mask=True):
         """
         Forward pass of the JEPA model.
         
@@ -132,12 +180,13 @@ class JEPA(nn.Module):
             frames (Tensor): Input frames
             actions (Tensor, optional): One-hot encoded actions
             action_idx (Tensor, optional): Action indices
+            apply_mask (bool): Whether to apply masking for self-supervised learning
             
         Returns:
             dict: Dictionary containing model outputs
         """
-        # Encode context (frames)
-        context_embeddings = self.encode_context(frames)
+        # Encode context (frames) with optional masking
+        context_embeddings = self.encode_context(frames, apply_mask=apply_mask)
         
         # Predict target embeddings
         predicted_target_embeddings = self.predict(context_embeddings)
@@ -147,13 +196,29 @@ class JEPA(nn.Module):
             'predicted_target_embeddings': predicted_target_embeddings
         }
         
-        # If actions or action indices are provided, encode targets
-        if actions is not None:
-            target_embeddings = self.encode_target(actions)
-            outputs['target_embeddings'] = target_embeddings
-        elif action_idx is not None:
-            target_embeddings = self.encode_target(action_idx)
-            outputs['target_embeddings'] = target_embeddings
+        # Choose which action representation to use based on the target encoder type
+        if isinstance(self.target_encoder, AtariActionEncoder):
+            # AtariActionEncoder expects action indices
+            if action_idx is not None:
+                target_embeddings = self.encode_target(action_idx)
+                outputs['target_embeddings'] = target_embeddings
+            elif actions is not None:
+                # If only one-hot actions are provided, use the forward_one_hot method
+                target_embeddings = self.target_encoder.forward_one_hot(actions)
+                outputs['target_embeddings'] = target_embeddings
+        else:
+            # Standard TargetEncoder expects one-hot actions
+            if actions is not None:
+                target_embeddings = self.encode_target(actions)
+                outputs['target_embeddings'] = target_embeddings
+            elif action_idx is not None:
+                # Convert indices to one-hot if needed
+                batch_size = action_idx.shape[0]
+                action_dim = self.target_encoder.action_dim
+                actions = torch.zeros(batch_size, action_dim, device=action_idx.device)
+                actions.scatter_(1, action_idx.unsqueeze(1), 1.0)
+                target_embeddings = self.encode_target(actions)
+                outputs['target_embeddings'] = target_embeddings
         
         return outputs
     
