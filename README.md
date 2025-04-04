@@ -1,111 +1,80 @@
-# Atari JEPA - Frame-to-Action Prediction
+# Game JEPA - Joint Embedding Predictive Architecture for Reinforcement Learning
 
-This project implements a Joint Embedding Predictive Architecture (JEPA) for predicting player actions from Atari Breakout game frames using the Atari-HEAD dataset.
+This project implements a Joint Embedding Predictive Architecture (JEPA) approach for reinforcement learning tasks. Currently, it focuses on the CartPole environment as a proof of concept.
 
 ## Project Structure
 
 ```
-atari_jepa/
+game-jepa/
 │
-├── data/                   # Data loading and processing
-│   ├── __init__.py
-│   ├── data_loader.py      # Dataset loaders
-│   └── data_processing.py  # Data extraction and preprocessing
+├── examples/               # Example implementations
+│   ├── agents.py           # Agent implementations (JEPA Agent)
+│   ├── cartpole.py         # CartPole environment example
+│   └── numpy_patch.py      # Patch for numpy compatibility
 │
-├── models/                 # Model definitions
-│   ├── __init__.py
-│   ├── context_encoder.py  # Frame encoder
-│   ├── target_encoder.py   # Action encoder
-│   ├── predictor.py        # Predictor network
-│   └── jepa.py             # Full JEPA implementation
-│
-├── utils/                  # Utility functions
-│   ├── __init__.py
-│   ├── visualization.py    # Visualization tools
-│   └── metrics.py          # Evaluation metrics
-│
-├── scripts/                # Training and evaluation scripts
-│   ├── train.py            # Training script
-│   └── evaluate.py         # Evaluation script
-│
-├── notebooks/              # Jupyter notebooks for exploration and demos
-│
-├── venv/                   # Virtual environment
+├── .venv/                  # Virtual environment
 │
 └── requirements.txt        # Project dependencies
 ```
 
-## I-JEPA Alignment Considerations
+## CartPole Example
 
-This implementation has been compared with Facebook Research's I-JEPA implementation ([facebookresearch/ijepa](https://github.com/facebookresearch/ijepa)). Here are key considerations and potential improvements to align our implementation more closely with I-JEPA:
+The CartPole example demonstrates a simple implementation of a Joint Embedding Predictive Architecture (JEPA) for reinforcement learning. This example uses the CartPole-v1 environment from OpenAI Gym.
 
-### Key Differences
+### How It Works
 
-1. **Encoder Architecture**: 
-   - **Facebook I-JEPA**: Uses Vision Transformers (ViT) with positional embeddings and self-attention.
-   - **Current Implementation**: Uses CNN/ResNet for frames and MLP/embedding for actions.
+The JEPA approach for CartPole works as follows:
 
-2. **Predictor Design**:
-   - **Facebook I-JEPA**: Uses transformer-based predictor with masked tokens and multiple attention blocks.
-   - **Current Implementation**: Uses simpler MLP or residual block-based predictor network.
+1. **State Encoding**: The agent encodes the CartPole state (position, velocity, angle, angular velocity) into a latent embedding space.
 
-3. **Masking Strategy**:
-   - **Facebook I-JEPA**: Predicts masked image patches from unmasked patches (self-supervised).
-   - **Current Implementation**: Directly predicts action embeddings from frame embeddings (supervised).
+2. **Action Prediction**: The agent predicts the next state embedding based on the current state embedding and the action taken.
 
-4. **Target Space**:
-   - **Facebook I-JEPA**: Same-modality prediction (image patches to image patches).
-   - **Current Implementation**: Cross-modality prediction (frames to actions).
+3. **Policy Learning**: The agent learns a policy that maximizes rewards while also improving its ability to predict future states.
 
-### Planned Improvements
+### Code Structure
 
-1. **Enhanced Predictor Architecture**:
-   - Replace the simple MLP predictor with a transformer-based architecture.
-   - Add self-attention mechanisms to capture relationships within frames.
+The implementation consists of two main files:
 
-2. **Masking Strategies**:
-   - Implement frame masking where parts of input frames are masked.
-   - Support multi-block masking as in I-JEPA.
+1. **agents.py**: Contains the `JEPAAgent` class and helper functions:
+   - `JEPAAgent`: Neural network architecture with encoder, predictor, policy, and value components
+   - `collect_episode`: Function to collect experience from the environment
+   - `train_step`: Function to update the agent based on collected experience
 
-3. **Positional Encodings**:
-   - Add sinusoidal positional encodings to both encoders.
-   - Support 2D-aware position encoding for image frames.
+2. **cartpole.py**: Contains the main training loop and environment setup:
+   - `pole()`: Simple function to test the CartPole environment
+   - `jepa_pole_train()`: Main training function for the JEPA agent
 
-4. **Self-supervised Pretraining**:
-   - Add self-supervised pretraining phase where the model predicts masked frame regions.
-   - Fine-tune on action prediction as a downstream task.
+### Running the Example
 
-5. **Loss Function Refinements**:
-   - Focus on cosine similarity between predicted and target embeddings.
-   - Implement InfoNCE-style contrastive losses.
+To run the CartPole example:
 
-## Implementation Status
+```bash
+python examples/cartpole.py
+```
 
-### Main Implementation (train_combined.py)
-- [x] Basic JEPA implementation
-- [x] CNN/ResNet/Vision Transformer context encoders
-- [x] MLP/Embedding target encoders
-- [x] MLP/Residual/Transformer predictor networks
-- [x] Data processing for Atari-HEAD dataset
-- [x] Self-supervised learning with masking
-- [x] Unified training script with multiple modes
-- [x] Support for both real and synthetic data
+### Performance and Limitations
 
-### Supported Features
-- [x] Simplified synthetic data generation
-- [x] Multiple data processing approaches (real, fixed, synthetic)
-- [x] Vision Transformer context encoder
-- [x] Transformer-based predictor
-- [x] Support for masking strategies
+While the JEPA approach shows promise for reinforcement learning tasks, the current implementation has several limitations:
 
-### Future Work
-- [x] Integrate all advanced features into the main training script
-- [x] Self-supervised pretraining with masking
-- [ ] Multi-game training
-- [ ] Comprehensive evaluation metrics
-- [ ] Performance optimizations for large datasets
-- [ ] Curriculum learning strategies
-- [ ] Integration with other game environments
+1. **Convergence Issues**: The loss value plateaus around 1.0, which is not optimal compared to classical Q-learning approaches that can achieve much lower loss values and better performance.
+
+2. **Prediction vs. Policy Trade-off**: The current implementation tries to balance between learning a good state predictor and a good policy, which can lead to suboptimal performance in both tasks.
+
+3. **Simple Architecture**: The current neural network architecture is relatively simple and may not capture the full complexity of the environment dynamics.
+
+4. **Limited Exploration**: The agent uses a simple softmax policy for exploration, which may not be sufficient for more complex environments.
+
+### Future Improvements
+
+Planned improvements for the CartPole example include:
+
+1. **Enhanced Architecture**: Implementing more sophisticated neural network architectures for both the encoder and predictor components.
+
+2. **Better Exploration Strategies**: Incorporating more advanced exploration strategies such as intrinsic motivation or curiosity-driven exploration.
+
+3. **Hyperparameter Tuning**: Systematically tuning hyperparameters to improve performance.
+
+4. **Comparison with Baselines**: Directly comparing the JEPA approach with classical RL methods like DQN, A2C, and PPO on the same tasks.
 
 ## Setup
 
@@ -128,146 +97,148 @@ This implementation has been compared with Facebook Research's I-JEPA implementa
    pip install -r requirements.txt
    ```
 
-## Data Preparation
+## Implementation Details
 
-The code expects the Atari-HEAD dataset in the following format:
-- Breakout game data extracted from the zip file
-- Game frames accessible as image files
-- Label files containing action data
+### JEPA Agent Architecture
 
-## Training
+The `JEPAAgent` class implements a neural network with the following components:
 
-The project provides a unified training script that supports multiple data processing modes and model architectures:
-
-```bash
-python atari_jepa/scripts/train_combined.py [OPTIONS]
+```python
+class JEPAAgent(nn.Module):
+    def __init__(self, state_dim, action_dim, z_dim=64):
+        # Encoder: state -> embedding
+        self.encoder = nn.Sequential(
+            nn.Linear(state_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, z_dim)
+        )
+        
+        # Predictor: (embedding, action) -> next embedding
+        self.action_embed = nn.Embedding(action_dim, 8)
+        self.predictor = nn.Sequential(
+            nn.Linear(z_dim + 8, 128),
+            nn.ReLU(),
+            nn.Linear(128, z_dim)
+        )
+        
+        # Policy: embedding -> action logits
+        self.policy = nn.Sequential(
+            nn.Linear(z_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, action_dim)
+        )
+        
+        # Value: embedding -> value
+        self.value = nn.Sequential(
+            nn.Linear(z_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 1)
+        )
 ```
 
-### Training Modes
+### Training Process
 
-1. **Real Data Mode**: Process and train on the actual Atari-HEAD dataset.
-   ```bash
-   python atari_jepa/scripts/train_combined.py --data_mode real --data_path /path/to/atari_head_dataset --game_name breakout
-   ```
+The training process in the CartPole example combines reinforcement learning with predictive learning:
 
-2. **Fixed Data Mode**: Use a more robust data processing approach.
-   ```bash
-   python atari_jepa/scripts/train_combined.py --data_mode fixed --data_path /path/to/atari_head_dataset --game_name breakout
-   ```
-
-3. **Synthetic Data Mode**: Generate synthetic data for quick testing without needing the dataset.
-   ```bash
-   python atari_jepa/scripts/train_combined.py --data_mode synthetic --game_name breakout --synthetic_samples 1000
-   ```
-
-### Common Options
-
-- `--data_mode`: Data processing mode to use (real, synthetic, or fixed)
-- `--data_path`: Path to the Atari-HEAD dataset (required for real and fixed modes)
-- `--game_name`: Name of the game to train on (default: breakout)
-- `--synthetic_samples`: Number of synthetic samples to generate (synthetic mode only)
-- `--output_dir`: Directory to save outputs
-- `--batch_size`: Batch size for training
-- `--epochs`: Number of epochs to train
-- `--lr`: Learning rate
-- `--device`: Device to train on (cuda or cpu)
-
-### Model Architecture Options
-
-- `--context_encoder`: Type of context encoder (cnn, resnet, vit)
-- `--target_encoder`: Type of target encoder (standard, embedding)
-- `--predictor`: Type of predictor (mlp, residual, transformer)
-- `--embedding_dim`: Dimension of embeddings
-- `--hidden_dim`: Dimension of hidden layers
-- `--use_masking`: Enable masking for self-supervised training
-- `--mask_ratio`: Ratio of tokens/patches to mask during training
-
-## Example training:
-
-Here's an example of training the model with advanced features using synthetic data:
-
-```bash
-python atari_jepa/scripts/train_combined.py --data_mode synthetic --synthetic_samples 100 --context_encoder vit --predictor transformer --embedding_dim 256 --hidden_dim 512 --use_masking --mask_ratio 0.3 --batch_size 8 --epochs 20
+```python
+def train_step(agent, optimizer, states, actions, rewards, next_states, dones, gamma=0.99, lambda_pred=1.0):
+    # Convert lists to numpy arrays for efficiency
+    states = torch.FloatTensor(np.array(states))
+    actions = torch.LongTensor(np.array(actions))
+    rewards = torch.FloatTensor(np.array(rewards))
+    next_states = torch.FloatTensor(np.array(next_states))
+    dones = torch.FloatTensor(np.array(dones))
+    
+    # Compute embeddings
+    z_t = agent.encoder(states)
+    z_next = agent.encoder(next_states)
+    
+    # Prediction loss
+    z_next_pred = agent.predict_next_z(z_t, actions)
+    prediction_loss = ((z_next_pred - z_next) ** 2).mean()
+    
+    # RL losses (A2C)
+    with torch.no_grad():
+        _, next_values = agent.get_action_value(next_states)
+        next_values = next_values.squeeze(-1)
+        targets = rewards + gamma * next_values * (1 - dones)
+        _, values = agent.get_action_value(states)
+        values = values.squeeze(-1)
+        advantages = targets - values
+    
+    action_logits, _ = agent.get_action_value(states)
+    log_probs = torch.log_softmax(action_logits, dim=-1)
+    log_probs_a = log_probs[range(len(actions)), actions]
+    
+    policy_loss = - (log_probs_a * advantages).mean()
+    value_loss = ((values - targets) ** 2).mean()
+    
+    # Total loss
+    total_loss = policy_loss + value_loss + lambda_pred * prediction_loss
+    
+    # Update parameters
+    optimizer.zero_grad()
+    total_loss.backward()
+    optimizer.step()
+    
+    return total_loss.item()
 ```
 
-### Parameter Explanation:
+The training combines three types of losses:
+1. **Prediction Loss**: MSE between predicted and actual next state embeddings
+2. **Policy Loss**: Actor-Critic style policy gradient loss
+3. **Value Loss**: MSE between predicted and target values
 
-- `--data_mode synthetic`: Uses synthetic data generation instead of real Atari-HEAD dataset
-- `--synthetic_samples 100`: Generates 100 random frame-action pairs for training
-- `--context_encoder vit`: Uses Vision Transformer architecture for encoding frames
-- `--predictor transformer`: Uses Transformer-based predictor with self-attention
-- `--embedding_dim 256`: Sets the dimension of latent embeddings to 256
-- `--hidden_dim 512`: Sets the dimension of hidden layers to 512
-- `--use_masking`: Enables self-supervised learning with patch masking
-- `--mask_ratio 0.3`: Masks 30% of the input patches during training
-- `--batch_size 8`: Processes 8 samples per training iteration
-- `--epochs 20`: Trains for 20 complete passes through the dataset
+### Training Results
 
-### What's Happening During Training:
-
-1. **Data Preparation**: The script generates 100 synthetic frame-action pairs and splits them into training (80%) and validation (20%) sets.
-
-2. **Model Creation**: A JEPA model is created with:
-   - Vision Transformer context encoder for processing frames
-   - Standard action embedding target encoder
-   - Transformer-based predictor for mapping frame embeddings to action embeddings
-
-3. **Training Process**:
-   - During each epoch, the model processes batches of frames with 30% of patches randomly masked
-   - The Vision Transformer encoder extracts features from the partially masked frames
-   - The Transformer predictor maps these features to predicted action embeddings
-   - Loss is calculated using contrastive learning (comparing predicted vs. actual action embeddings)
-
-4. **Validation**: Every 5 epochs, the model is evaluated on the validation set with masking disabled
-
-### Training Results:
+When running the CartPole example, you'll see output similar to:
 
 ```
-Final evaluation...
-Test Loss: 1.8572
-Test Accuracy: 0.1500
-Test MRR: 0.3760
+Episode 0, Loss: 1.7315
+Episode 50, Loss: 1.3207
+Episode 100, Loss: 1.0361
+...
+Episode 950, Loss: 0.9974
 ```
 
-- **Test Loss**: Final contrastive loss value (lower is better)
-- **Test Accuracy**: Percentage of correctly predicted actions (with synthetic random data, this is near random chance)
-- **Test MRR**: Mean Reciprocal Rank - a measure of ranking quality (higher is better)
+The loss converges to around 1.0, which indicates that the agent is learning but not achieving optimal performance. Classical Q-learning approaches can achieve much better performance on the CartPole task.
 
-The model saves checkpoints during training, with the final model stored at `../outputs/[timestamp]/checkpoints/final_model.pth`.
+## Comparison with Classical RL
 
-> **Note**: When using synthetic data, performance metrics are primarily for testing the pipeline functionality rather than actual predictive performance. For meaningful results, use real Atari-HEAD data with `--data_mode real`.
+The JEPA approach differs from classical reinforcement learning methods in several ways:
 
-## Evaluation
+1. **Representation Learning**: JEPA focuses on learning meaningful state representations through prediction, while classical RL methods like Q-learning focus directly on value estimation.
 
-Evaluation is not ready yet as I have to plug a game simulator but in principle will work like this:
+2. **Predictive Component**: JEPA explicitly learns to predict future states, which may help with planning and model-based reasoning.
 
-```
-python scripts/evaluate.py --model_path /path/to/saved/model
-```
+3. **Combined Objectives**: JEPA combines prediction and policy learning in a single framework, while many classical RL methods separate these concerns.
 
-## Approach
+### Performance Comparison
 
-This implementation follows a Joint Embedding Predictive Architecture (JEPA) approach:
+In the CartPole example, the JEPA approach shows some limitations compared to classical RL methods:
 
-1. **Context Encoder**: Encodes game frames into a latent representation
-2. **Target Encoder**: Encodes actions into a latent representation
-3. **Predictor**: Predicts the action embedding from the frame embedding
-4. **Training**: Minimizes the distance between predicted action embeddings and actual action embeddings
+1. **Convergence**: The loss plateaus around 1.0, while classical methods like DQN can solve CartPole completely (achieving the maximum possible reward consistently).
 
-This approach allows the model to learn meaningful representations that capture the relationship between game states and human actions without having to predict exact pixel values or action labels directly.
+2. **Sample Efficiency**: The current JEPA implementation may require more samples to learn compared to optimized RL algorithms.
 
-### JEPA vs I-JEPA Adaptation
+3. **Stability**: The combined loss function may lead to training instability as the agent tries to optimize multiple objectives simultaneously.
 
-While the original Facebook I-JEPA focuses on self-supervised learning within the same modality (predicting masked image patches from visible patches), our adaptation applies JEPA principles to cross-modal prediction (frames to actions). 
+## Future Directions
 
-Our implementation offers:
+Future work on the Game JEPA project will focus on:
 
-1. **Cross-Modal Learning**: Learn relationships between visual frames and discrete actions
-2. **Behavorial Cloning**: Capture human decision-making patterns from the Atari-HEAD dataset
-3. **Multiple Encoder Options**: 
-   - CNN/ResNet for performance on limited hardware
-   - Vision Transformers for higher representational capacity
-4. **Multiple Predictor Options**:
-   - MLP/Residual predictors for simple mapping
-   - Transformer-based predictors for more complex relationships
-5. **Optional Masking**: Apply masking strategies for self-supervised pretraining
+1. **Improved Architectures**: Exploring more sophisticated neural network architectures for both encoding and prediction.
+
+2. **Multi-Environment Support**: Extending beyond CartPole to more complex environments like Atari games.
+
+3. **Self-Supervised Pretraining**: Implementing self-supervised pretraining phases to improve representation learning.
+
+4. **Hybrid Approaches**: Combining JEPA with other successful RL techniques like distributional RL or hierarchical RL.
+
+5. **Theoretical Analysis**: Better understanding the relationship between prediction accuracy and policy performance.
+
+## Conclusion
+
+The Game JEPA project provides a framework for exploring how predictive architectures can be applied to reinforcement learning problems. While the current CartPole implementation shows some limitations compared to classical RL approaches, the JEPA framework offers interesting possibilities for combining representation learning with policy optimization.
+
+By focusing on learning to predict future states in a latent space, JEPA may eventually lead to agents that can better understand the dynamics of their environments and make more informed decisions.
